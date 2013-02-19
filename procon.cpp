@@ -92,6 +92,7 @@ struct UnionFind {
     bool same(int x, int y) { return find(x) == find(y); }
     void unite(int x, int y) {
         int rx = find(x), ry = find(y);
+        if (rx == ry) return;
         if (rank[rx] >= rank[ry]) p[ry] = rx; else p[rx] = ry;
         if (rank[rx] == rank[ry]) rank[rx]++;
     }
@@ -116,6 +117,68 @@ struct BIT {
     long long sum(int i, int j) { return sum(j) - sum(i-1); }
     void add(int i, long long x) {
         while (i < bit.size()) { bit[i] += x; i += (i & -i); }
+    }
+};
+
+///////////////////////////////////////////////////////////////////
+// Meldable Heap
+//  (confirmed at http://utpc2012.contest.atcoder.jp/tasks/utpc2012_12)
+template<class T> class SkewHeap {
+  public:
+    SkewHeap() : root(NULL), sz(0) {}
+    bool empty()            { return root == NULL; }
+    T top()                 { return root->val; }
+    void push(T val)        { root = meld(root, new Node(val)); sz++; }
+    void pop()              { Node* old = root; root = meld(root->l, root->r); delete old; sz--; }
+    void meld(SkewHeap& a)  { root = meld(root, a.root); sz += a.size(); }
+    int size()              { return sz; }
+  private:
+    struct Node {
+        Node *l, *r;
+        T val;
+        Node(T val) : l(NULL), r(NULL), val(val) {}
+    };
+    Node* root;
+    int sz;
+    Node* meld(Node* a, Node* b) {
+        if (a == NULL) return b;
+        if (b == NULL) return a;
+        if (a->val < b->val) swap(a, b);
+        a->r = meld(a->r, b);
+        swap(a->l, a->r);
+        return a;
+    }
+};
+
+///////////////////////////////////////////////////////////////////
+// Meldable Median Heap
+//  (confirmed at http://utpc2012.contest.atcoder.jp/tasks/utpc2012_12)
+template<class T> class MedianHeap {
+  public:
+    bool empty() { return small.empty(); }
+    T median() { return small.top(); }
+    void push(T val) {
+        if (small.size() == large.size()) small.push(val); else large.push(-val);
+        maintain();
+    }
+    void pop() { small.pop(); maintain(); }
+    void meld(MedianHeap& a) { small.meld(a.small); large.meld(a.large); maintain(); }
+  private:
+    SkewHeap<T> small, large;
+    void maintain() {
+        while (small.size() > large.size()+1) {
+            large.push(-small.top());
+            small.pop();
+        }
+        while (small.size() < large.size()) {
+            small.push(-large.top());
+            large.pop();
+        }
+        while (!small.empty() && !large.empty() && small.top() > -large.top()) {
+            T s = small.top(), l = large.top();
+            small.pop(); large.pop();
+            small.push(-l); large.push(-s);
+        }
     }
 };
 
@@ -295,6 +358,40 @@ private:
     vector<vector<edge> > G;
     vector<int> h, dist, prevv, preve;
 };
+
+
+//===============================================================//
+//                        String
+//===============================================================//
+
+///////////////////////////////////////////////////////////////////
+// KMP法によって文字列TからパターンPにマッチするshiftの数をかぞえる
+//  (confirmed at SRM 433 Div1 250)
+int count_by_KMP(const string& T, const string& P) {
+    // compute prefix funtion
+    int m = P.length();
+    vector<int> p(m+1);
+    p[1] = 0;
+    int k = 0;
+    for (int q = 2; q <= m; q++) {
+        while (k > 0 && P[k] != P[q-1]) k = p[k];
+        if (P[k] == P[q-1]) k = k+1;
+        p[q] = k;
+    }
+    // pattern match
+    int matches = 0;
+    int q = 0;
+    for (int i = 0; i < T.size(); i++) {
+        while (q > 0 && P[q] != T[i]) q = p[q];
+        if (P[q] == T[i]) q = q+1;
+        if (q == m) {
+            matches++;
+            q = p[q];
+        }
+    }
+    return matches;
+}
+
 
 //===============================================================//
 //                        Test code
